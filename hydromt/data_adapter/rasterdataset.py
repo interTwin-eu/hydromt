@@ -377,7 +377,7 @@ class RasterDatasetAdapter(DataAdapter):
         logger: Logger = logger,
     ):
         kwargs = self.driver_kwargs.copy()
-
+        
         # read using various readers
         logger.info(f"Reading {self.name} {self.driver} data from {self.path}")
         if self.driver == "netcdf":
@@ -421,6 +421,14 @@ class RasterDatasetAdapter(DataAdapter):
                     # NOTE: overview levels start at zoom_level 1, see _get_zoom_levels_and_crs
                     kwargs.update(overview_level=zoom_level - 1)
             ds = io.open_mfraster(fns, logger=logger, **kwargs)
+        elif self.driver == "stac":
+            from openeo.local import LocalConnection 
+            conn = LocalConnection("./")
+            temporal_extent = ["2001-01-02","2001-02-03"]
+            cube = conn.load_stac(url=fns[0].as_posix(),temporal_extent = temporal_extent, bands=["t2m"])
+            ds = cube.execute()
+            ds = ds.to_dataset(name="t2m")
+            pass
         else:
             raise ValueError(f"RasterDataset: Driver {self.driver} unknown")
 
