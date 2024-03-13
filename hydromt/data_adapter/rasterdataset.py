@@ -41,9 +41,12 @@ from ..raster import GEO_MAP_COORD
 from .caching import cache_vrt_tiles
 from .data_adapter import PREPROCESSORS, DataAdapter
 
+from openeo.local import LocalConnection 
+
 logger = getLogger(__name__)
 
 __all__ = ["RasterDatasetAdapter", "RasterDatasetSource"]
+
 
 
 class RasterDatasetAdapter(DataAdapter):
@@ -310,6 +313,7 @@ class RasterDatasetAdapter(DataAdapter):
                 geom,
                 bbox,
                 cache_root,
+                time_tuple=time_tuple,
                 zoom_level=zoom_level,
                 logger=logger,
             )
@@ -373,6 +377,7 @@ class RasterDatasetAdapter(DataAdapter):
         geom: Optional[Geom],
         bbox: Optional[Bbox],
         cache_root: Optional[StrPath],
+        time_tuple: Optional[TimeRange] = None,
         zoom_level: Optional[int] = None,
         logger: Logger = logger,
     ):
@@ -422,13 +427,44 @@ class RasterDatasetAdapter(DataAdapter):
                     kwargs.update(overview_level=zoom_level - 1)
             ds = io.open_mfraster(fns, logger=logger, **kwargs)
         elif self.driver == "stac":
-            from openeo.local import LocalConnection 
+            
             conn = LocalConnection("./")
-            temporal_extent = ["2001-01-02","2001-02-03"]
-            cube = conn.load_stac(url=fns[0].as_posix(),temporal_extent = temporal_extent, bands=["t2m"])
+
+            stac_kwargs = {}
+
+            def ensure_list(x):
+                if isinstance(x,list):
+                    return x
+                else:
+                    return [x]
+                
+            # spatial filtering
+            if geom is not None or bbox is not None:
+                w,e,s,n = geom.bounds.loc[0][["minx","maxx","miny","maxy"]].values
+                crs = str(geom.crs.to_epsg())
+                stac_kwargs.update({"spatial_extent":{"west":w, "east":e, "south":s, "north":n, "crs":crs}})
+            
+            # temporal filtering
+            if time_tuple:
+                time_tuple = (str(pd.to_datetime(time_tuple[0]).to_pydatetime().date()), str(pd.to_datetime(time_tuple[1]).to_pydatetime().date()))
+                stac_kwargs.update({"temporal_extent":time_tuple})
+
+            if not (bands := kwargs.get("bands")): raise Exception("STAC driver requires to select a band")
+
+            cube = conn.load_stac(
+                url=fns[0].as_posix(), 
+                bands= ensure_list(bands), 
+                **stac_kwargs
+                )
+
             ds = cube.execute()
-            ds = ds.to_dataset(name="t2m")
-            pass
+
+            if isinstance(ds, xr.DataArray):
+                ds.attrs.pop("spec")
+                ds = ds.to_dataset(name=bands)
+            
+            # cleaning 
+            ds = ds.isel(band=0, drop=True)
         else:
             raise ValueError(f"RasterDataset: Driver {self.driver} unknown")
 
