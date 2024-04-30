@@ -460,6 +460,9 @@ class RasterDatasetAdapter(DataAdapter):
             ds = cube.execute()
             ds.attrs.pop("spec") # this is an openeo/stac object that can't be serialized when writing the netcdf
             ds = ds.to_dataset(dim="band")
+
+            if kwargs.get("static"):
+                ds = ds.isel(time=0)
             
         else:
             raise ValueError(f"RasterDataset: Driver {self.driver} unknown")
