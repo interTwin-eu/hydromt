@@ -425,6 +425,7 @@ class RasterDatasetAdapter(DataAdapter):
                 if isinstance(zoom_level, int) and zoom_level > 0:
                     # NOTE: overview levels start at zoom_level 1, see _get_zoom_levels_and_crs
                     kwargs.update(overview_level=zoom_level - 1)
+
             ds = io.open_mfraster(fns, logger=logger, **kwargs)
         elif self.driver == "stac":
             
@@ -451,16 +452,17 @@ class RasterDatasetAdapter(DataAdapter):
 
             if not (bands := kwargs.get("bands")): raise Exception("STAC driver requires to select a band")
 
-            cube = conn.load_stac(
+            # TODO: Currently load stac does not return xr.Dataset objects but an xr.DataArray therefore 
+            # each "band" has to be of the same dtype. Looping is just workaround for tackling this issue
+            #  https://github.com/Open-EO/openeo-processes-dask/issues/235
+            das = [ conn.load_stac(
                 url=fns[0].as_posix(), 
-                bands= ensure_list(bands), 
+                bands= ensure_list(band), 
                 **stac_kwargs
-                )
-
-            ds = cube.execute()
-            ds.attrs.pop("spec") # this is an openeo/stac object that can't be serialized when writing the netcdf
-            ds = ds.to_dataset(dim="band")
-
+                ).execute().to_dataset(dim="band") for band in bands] #
+                
+            ds = xr.merge(das)
+        
             if kwargs.get("static"):
                 ds = ds.isel(time=0)
             
