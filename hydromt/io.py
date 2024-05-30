@@ -620,7 +620,10 @@ def open_vector(
     """
     driver = driver if driver is not None else str(fn).split(".")[-1].lower()
     if driver in ["csv", "parquet", "xls", "xlsx", "xy"]:
-        gdf = open_vector_from_table(fn, driver=driver, **kwargs)
+        if driver == "parquet":
+            gdf = gpd.read_parquet(fn)
+        else:
+            gdf = open_vector_from_table(fn, driver=driver, **kwargs)
     # drivers with multiple relevant files cannot be opened directly, we should pass the uri only
     else:
         if driver == "pyogrio":
