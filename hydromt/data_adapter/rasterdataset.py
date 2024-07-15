@@ -443,7 +443,7 @@ class RasterDatasetAdapter(DataAdapter):
             if geom is not None or bbox is not None:
                 w,e,s,n = geom.bounds.loc[0][["minx","maxx","miny","maxy"]].values
                 crs = str(geom.crs.to_epsg())
-                stac_kwargs.update({"spatial_extent":{"west":w, "east":e, "south":s, "north":n, "crs":crs}})
+                stac_kwargs.update({"spatial_extent":{"west":w-0.1, "east":e+0.1, "south":s-0.1, "north":n+0.1, "crs":crs}})
             
             # temporal filtering
             if time_tuple:
