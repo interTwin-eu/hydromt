@@ -393,8 +393,11 @@ class RasterDatasetAdapter(DataAdapter):
                 ds = xr.open_mfdataset(fns, decode_coords="all", **kwargs)
             except:
                 import fsspec
-                with fsspec.open(fns, mode="rb") as file:
-                    ds = xr.open_dataset(file, engine="h5netcdf")
+                # read netcdf on S3, works for single netcdf file.
+                fs = fsspec.open(fns[0], mode="rb")
+                if hasattr(fs, "open"): # thanks to https://github.com/fsspec/filesystem_spec/issues/579#issuecomment-1150081341
+                    fs = fs.open()
+                ds = xr.open_dataset(fs, engine="h5netcdf")
         elif self.driver == "zarr":
             preprocess = None
             if "preprocess" in kwargs:  # for zarr preprocess is done after reading
