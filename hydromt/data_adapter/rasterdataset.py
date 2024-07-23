@@ -41,7 +41,7 @@ from ..raster import GEO_MAP_COORD
 from .caching import cache_vrt_tiles
 from .data_adapter import PREPROCESSORS, DataAdapter
 
-from openeo.local import LocalConnection 
+from openeo.local import LocalConnection
 
 logger = getLogger(__name__)
 
@@ -389,7 +389,12 @@ class RasterDatasetAdapter(DataAdapter):
             if "preprocess" in kwargs:
                 preprocess = PREPROCESSORS.get(kwargs["preprocess"], None)
                 kwargs.update(preprocess=preprocess)
-            ds = xr.open_mfdataset(fns, decode_coords="all", **kwargs)
+            try:    
+                ds = xr.open_mfdataset(fns, decode_coords="all", **kwargs)
+            except:
+                import fsspec
+                with fsspec.open(fns, mode="rb") as file:
+                    ds = xr.open_dataset(file, engine="h5netcdf")
         elif self.driver == "zarr":
             preprocess = None
             if "preprocess" in kwargs:  # for zarr preprocess is done after reading
