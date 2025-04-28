@@ -467,7 +467,7 @@ class RasterDatasetAdapter(DataAdapter):
                 url=fns[0].as_posix(), 
                 bands= ensure_list(band), 
                 **stac_kwargs
-                ).execute().to_dataset(dim="band") for band in bands] #
+                ).execute().to_dataset(dim="bands") for band in bands] #
                 
             ds = xr.merge(das)
         
