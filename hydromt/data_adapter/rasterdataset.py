@@ -304,6 +304,7 @@ class RasterDatasetAdapter(DataAdapter):
         """
         try:
             # load data
+            variables = list([variables]) if isinstance(variables, str) else variables
             fns = self._resolve_paths(
                 time_tuple, variables, zoom_level, geom, bbox, logger
             )
@@ -314,6 +315,7 @@ class RasterDatasetAdapter(DataAdapter):
                 bbox,
                 cache_root,
                 time_tuple=time_tuple,
+                variables=variables,
                 zoom_level=zoom_level,
                 logger=logger,
             )
@@ -344,9 +346,10 @@ class RasterDatasetAdapter(DataAdapter):
             ds = self._set_metadata(ds)
             # return array if single var and single_var_as_array
             return self._single_var_as_array(ds, single_var_as_array, variables)
-        except NoDataException:
+        except NoDataException as e:
+            postfix = f"({e.message})" if e.message else ""
             _exec_nodata_strat(
-                f"No data was read from source: {self.name}",
+                f"No data was read from source: {self.name} {postfix}",
                 strategy=handle_nodata,
                 logger=logger,
             )
@@ -354,7 +357,7 @@ class RasterDatasetAdapter(DataAdapter):
     def _resolve_paths(
         self,
         time_tuple: Optional[TimeRange] = None,
-        variables: Optional[Variables] = None,
+        variables: Optional[List] = None,
         zoom_level: Optional[int] = 0,
         geom: Optional[Geom] = None,
         bbox: Optional[Bbox] = None,
@@ -379,6 +382,7 @@ class RasterDatasetAdapter(DataAdapter):
         cache_root: Optional[StrPath],
         time_tuple: Optional[TimeRange] = None,
         zoom_level: Optional[int] = None,
+        variables: Optional[List] = None,
         logger: Logger = logger,
     ):
         kwargs = self.driver_kwargs.copy()
@@ -436,6 +440,7 @@ class RasterDatasetAdapter(DataAdapter):
                     kwargs.update(overview_level=zoom_level - 1)
 
             ds = io.open_mfraster(fns, logger=logger, **kwargs)
+
         elif self.driver == "stac":
             
             conn = LocalConnection("./")
@@ -475,6 +480,11 @@ class RasterDatasetAdapter(DataAdapter):
             if kwargs.get("static"):
                 ds = ds.isel(time=0)
             
+
+            # rename ds with single band if single variable is requested
+            if variables is not None and len(variables) == 1 and len(ds.data_vars) == 1:
+                ds = ds.rename({list(ds.data_vars.keys())[0]: list(variables)[0]})
+
         else:
             raise ValueError(f"RasterDataset: Driver {self.driver} unknown")
 
@@ -523,7 +533,7 @@ class RasterDatasetAdapter(DataAdapter):
     @staticmethod
     def _slice_data(
         ds: Data,
-        variables: Optional[Variables] = None,
+        variables: Optional[List] = None,
         geom: Optional[Geom] = None,
         bbox: Optional[Bbox] = None,
         buffer: GeomBuffer = 0,
@@ -564,12 +574,10 @@ class RasterDatasetAdapter(DataAdapter):
                 ds.name = "data"
             ds = ds.to_dataset()
         elif variables is not None:
-            variables = np.atleast_1d(variables).tolist()
-            if len(variables) > 1 or len(ds.data_vars) > 1:
-                mvars = [var not in ds.data_vars for var in variables]
-                if any(mvars):
-                    raise ValueError(f"RasterDataset: variables not found {mvars}")
-                ds = ds[variables]
+            mvars = [var for var in variables if var not in ds.data_vars]
+            if len(mvars) > 0:
+                raise NoDataException(f"Variables {mvars} not found in data.")
+            ds = ds[variables]
         if time_tuple is not None:
             ds = RasterDatasetAdapter._slice_temporal_dimension(
                 ds,
