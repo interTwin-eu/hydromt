@@ -441,6 +441,7 @@ class RasterDatasetAdapter(DataAdapter):
 
             ds = io.open_mfraster(fns, logger=logger, **kwargs)
 
+
         elif self.driver == "stac":
             
             conn = LocalConnection("./")
@@ -485,6 +486,10 @@ class RasterDatasetAdapter(DataAdapter):
             if variables is not None and len(variables) == 1 and len(ds.data_vars) == 1:
                 ds = ds.rename({list(ds.data_vars.keys())[0]: list(variables)[0]})
 
+
+            # rename ds with single band if single variable is requested
+            if variables is not None and len(variables) == 1 and len(ds.data_vars) == 1:
+                ds = ds.rename({list(ds.data_vars.keys())[0]: list(variables)[0]})
         else:
             raise ValueError(f"RasterDataset: Driver {self.driver} unknown")
 
