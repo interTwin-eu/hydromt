@@ -4,14 +4,13 @@
 HydroMT with STAC support
 ===============================================================
 
-The HydroMT fork was required to support the implementation of the InterTwin's use case on Drought Forecasting in the Alpine region.
+The HydroMT fork was required to support the implementation of the InterTwin's use case on Drought Forecasting in the Alpine region, led by `Eurac Research's Institute of Earth Observation <https://www.eurac.edu/en/institutes-centers/institute-for-earth-observation>`_.
 
-The main feature developed in the context of the project is a new STAC driver to access data from cloud-based STAC collections.
+The main feature developed in the context of the project is the addition of a new STAC driver to access data from cloud-based STAC collections.
 
 The entry point for exploiting the new functionality requires the setup of the hydromt data catalog yaml file. 
 
-For example, to build the `Wflow_sbm` model with `EMO1` forcings it is possible to add this lines in the catalog, where the key addition is the `driver: stac` key-value:
-
+For example, to build the `Wflow_sbm` model with `EMO1` forcings stored in the InteeTwin STAC catalog, one has to configure the hydromt YAML data catalog by adding a new emo1 entry and specifying that it is using the `driver: stac`.
 
 .. code-block:: yaml
 
